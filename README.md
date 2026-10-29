@@ -1,5 +1,12 @@
 # 독서모임 신청 · Level 2 백엔드
 
+상태: 공개배포 · **공개 주소 핵심 사용 경로 검증 완료 / 제출 전**
+
+- API: [https://fde-bookclub-l2-be.onrender.com](https://fde-bookclub-l2-be.onrender.com) · [DB 연결 확인](https://fde-bookclub-l2-be.onrender.com/health)
+- 프론트엔드: [https://fde-bookclub-l2-fe.vercel.app](https://fde-bookclub-l2-fe.vercel.app)
+- 공개 소스: [hyliliana/fde-bookclub-l2-be](https://github.com/hyliliana/fde-bookclub-l2-be)
+- 프론트엔드 소스: [hyliliana/fde-bookclub-l2-fe](https://github.com/hyliliana/fde-bookclub-l2-fe)
+
 모임을 등록하고 참가 신청·취소를 처리하는 NestJS API입니다. 화면을 우회한 요청에도 서버가 정원과 중복 신청을 검사합니다. 실제 PostgreSQL의 `bookclub_l2` 스키마만 사용하며, Level 1과 데이터 공간을 분리합니다.
 
 ## 준비·실행
@@ -20,9 +27,9 @@ pnpm start
 
 | 설정값 | 의미 |
 |---|---|
-| `DATABASE_URL` | 로컬은 Render External, 같은 지역 Render 서비스는 Internal 연결 주소 |
-| `DATABASE_SSL` | 기본 `true`, 인증서를 검증합니다. 같은 지역 Render Internal 연결에서만 `false`를 명시할 수 있습니다. |
-| `FRONTEND_URL` | 실제 Vercel 주소. 여러 주소는 쉼표로 구분합니다. |
+| `DATABASE_URL` | 실제 배포는 Render PostgreSQL External 연결 주소를 사용합니다. 비밀 값은 백엔드 환경 설정에만 저장합니다. |
+| `DATABASE_SSL` | 실제 배포 값은 `true`이며 TLS 인증서 검증이 켜져 있습니다. 생략해도 `true`입니다. |
+| `FRONTEND_URL` | 실제 값은 `https://fde-bookclub-l2-fe.vercel.app`입니다. 여러 주소는 쉼표로 구분합니다. |
 | `PORT` | 로컬 기본 4001. Render가 제공하는 PORT 값을 사용합니다. |
 
 실제 DB 주소는 `.env` 또는 Render 설정에만 넣고 GitHub에 올리지 않습니다. `.env.example`에는 예시 값만 있습니다.
@@ -107,15 +114,29 @@ RUN_DB_INTEGRATION=1 pnpm test:integration
 
 ## Render 배포
 
-- 프론트엔드와 별도 GitHub 저장소를 사용합니다.
-- DB와 Web Service의 지역을 맞추고 환경 변수를 등록합니다.
+이 백엔드는 위 공개 GitHub 저장소를 Render **Public Git repository** 방식으로 지정해 배포했습니다. 자동 연동 배포가 아니므로 소스를 push한 뒤 Render에서 수동 배포해야 서버 코드가 갱신됩니다.
+
+현재 두 앱은 Singapore 지역의 Render PostgreSQL Free 1개를 공유합니다. 이 앱은 `bookclub_l2` 스키마만 사용합니다. 실제 연결은 External URL과 `DATABASE_SSL=true`로 설정했으며 TLS 인증서를 검증합니다.
+
+재배포 명령 기준:
+
 - Build: `corepack enable && pnpm install --frozen-lockfile && pnpm build`
 - Start: `pnpm db:setup && pnpm db:seed && pnpm start`
-- Node: `NODE_VERSION=24`
-- 실제 배포 후 `/health`, 정상 신청·취소·정원 초과·중복 거절을 화면과 API에서 다시 확인합니다.
+- Node: `NODE_VERSION=24.19.0`
+- 허용 프론트엔드: `FRONTEND_URL=https://fde-bookclub-l2-fe.vercel.app`
 
-무료 Render Web Service는 대기 상태에서 첫 접속이 느릴 수 있습니다. 무료 PostgreSQL은 워크스페이스당 하나이며 생성 30일 후 만료됩니다. 장기 운영 전에 [현재 Render 플랜 조건](https://render.com/docs/free)을 확인하세요.
+DB 준비는 빌드 중에 실행하지 않습니다. 시작 시 실행하는 setup/seed는 이 앱의 스키마만 다루며 사용자 자료를 지우지 않습니다. 프론트엔드는 해당 GitHub 소스 ZIP을 Vercel **Drop to Deploy**로 올렸으며, 프론트엔드 배포용 `.env.production`에는 공개 `NEXT_PUBLIC_API_URL`만 포함했습니다.
 
-## 검증 상태
+무료 Render Web Service는 대기 상태에서 첫 접속이 느릴 수 있습니다. 현재 무료 DB의 만료 예정일은 **2026년 11월 28일**입니다. 장기 운영 전에 [Render 공식 플랜 안내](https://render.com/docs/free)를 확인하세요.
 
-자동 검사와 실제 DB 통합 검사는 별도 상태입니다. 실제 DB 접속·공개 배포 확인 전에는 과제 완료로 표시하지 않습니다. 요구사항은 [기획서.md](./기획서.md)에 있습니다.
+## 현재 검증 상태
+
+- 백엔드 기본 검사 **10개 통과**: 입력 검증·HTTP 오류·DB 실패 상태·CORS·신청 규칙.
+- 실제 Render DB 통합 검사 **2개 통과**: 마지막 한 자리 동시 신청, 동일 회원 동시 신청, 반복 취소·재신청, 검색·현황 일치를 확인했습니다.
+- Level 2 재생성 후 Level 1 자료 보존을 확인했습니다. 로컬 화면의 정상 신청·취소·거절·등록·검색도 확인했습니다.
+- 공개 배포와 별도 공개 GitHub 저장소 생성·push를 완료했습니다.
+- 공식 Playwright MCP로 로그인하지 않은 PC·모바일 환경에서 공개 목록과 상세 화면을 확인했습니다.
+- 공개 화면에서 검색, 정원 초과 거절(409), 중복 신청 거절(409), 정상 신청(201) → 취소(200)를 확인하고 검사 전 참가 상태로 복원했습니다.
+- 현재 상태는 **공개 주소 핵심 사용 경로 검증 완료 / 제출 전**이며 최종 제출은 제출자가 직접 진행합니다.
+
+기능·화면·데이터 요구사항은 [기획서.md](./기획서.md)를 참고하세요.
